@@ -21,16 +21,24 @@ jobs:
       fail-fast: false
       matrix:
         repository:
+          - swift-dns/swift-tiny-sequence
           - swift-dns/swift-idna
           - swift-dns/swift-endpoint
           - swift-dns/swift-dns
-          - swift-dns/swift-tiny-sequence
 
     runs-on: ubuntu-latest
 
     timeout-minutes: 10
 
     steps:
+      - name: Generate swift-dns-helper token
+        id: app-token
+        uses: actions/create-github-app-token@v2
+        with:
+          app-id: ${{ vars.SWIFT_DNS_HELPER_APP_ID }}
+          private-key: ${{ secrets.SWIFT_DNS_HELPER_PRIVATE_KEY }}
+          owner: swift-dns
+
       - name: Check out ${{ github.repository }}
         uses: actions/checkout@v7
         with:
@@ -41,9 +49,8 @@ jobs:
         uses: actions/checkout@v7
         with:
           repository: ${{ matrix.repository }}
-          token: ${{ secrets.GH_ACCESS_TOKEN }}
           path: ${{ matrix.repository }}
-          persist-credentials: true
+          persist-credentials: false
 
       - name: Mirror root-dir into ${{ matrix.repository }}
         run: rsync --archive --verbose source/root-dir/ ${{ matrix.repository }}/
@@ -51,13 +58,11 @@ jobs:
       - name: Create pull request
         uses: peter-evans/create-pull-request@5f6978faf089d4d20b00c7766989d076bb2fc7f1 # v8.1.1
         with:
-          token: ${{ secrets.GH_ACCESS_TOKEN }}
+          token: ${{ steps.app-token.outputs.token }}
           path: ${{ matrix.repository }}
           branch: sync-files
           delete-branch: true
-          sign-commits: false
+          sign-commits: true
           commit-message: "Sync files from ${{ github.repository }}"
-          author: "github-actions[bot] <github-actions[bot]@users.noreply.github.com>"
-          committer: "github-actions[bot] <github-actions[bot]@users.noreply.github.com>"
           title: "Sync files from ${{ github.repository }}"
           body: "Automated sync from ${{ github.repository }}@${{ github.sha }}."
