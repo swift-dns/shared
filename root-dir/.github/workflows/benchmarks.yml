@@ -4,10 +4,14 @@ concurrency:
   cancel-in-progress: true
 on:
   pull_request:
-    {
-      types: [opened, reopened, synchronize],
-      paths-ignore: ["**.md", "**.yaml", "**.yml", "**.bash"]
-    }
+    types: [opened, reopened, synchronize]
+    paths:
+      - "**"
+      - "!**.md"
+      - "!**.yaml"
+      - "!**.yml"
+      - "!**.bash"
+      - ".github/workflows/benchmarks.yml"
   push: { branches: [main] }
   schedule:
     - cron: "0 6 * * 6"
