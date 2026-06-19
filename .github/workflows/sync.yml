@@ -1,0 +1,63 @@
+name: sync to external repositories
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+defaults:
+  run:
+    shell: bash --noprofile --norc -Eeuo pipefail {0}
+
+permissions:
+  contents: read
+
+jobs:
+  sync-to-external-repositories:
+    strategy:
+      fail-fast: false
+      matrix:
+        repository:
+          - swift-dns/swift-idna
+          - swift-dns/swift-endpoint
+          - swift-dns/swift-dns
+          - swift-dns/swift-tiny-sequence
+
+    runs-on: ubuntu-latest
+
+    timeout-minutes: 10
+
+    steps:
+      - name: Check out ${{ github.repository }}
+        uses: actions/checkout@v7
+        with:
+          path: source
+          persist-credentials: false
+
+      - name: Check out ${{ matrix.repository }}
+        uses: actions/checkout@v7
+        with:
+          repository: ${{ matrix.repository }}
+          token: ${{ secrets.GH_ACCESS_TOKEN }}
+          path: ${{ matrix.repository }}
+          persist-credentials: true
+
+      - name: Mirror root-dir into ${{ matrix.repository }}
+        run: rsync --archive --verbose source/root-dir/ ${{ matrix.repository }}/
+
+      - name: Create pull request
+        uses: peter-evans/create-pull-request@5f6978faf089d4d20b00c7766989d076bb2fc7f1 # v8.1.1
+        with:
+          token: ${{ secrets.GH_ACCESS_TOKEN }}
+          path: ${{ matrix.repository }}
+          branch: sync-files
+          delete-branch: true
+          sign-commits: false
+          commit-message: "Sync files from ${{ github.repository }}"
+          author: "github-actions[bot] <github-actions[bot]@users.noreply.github.com>"
+          committer: "github-actions[bot] <github-actions[bot]@users.noreply.github.com>"
+          title: "Sync files from ${{ github.repository }}"
+          body: "Automated sync from ${{ github.repository }}@${{ github.sha }}."
