@@ -28,9 +28,9 @@ jobs:
     steps:
       - name: Generate swift-dns-helper token
         id: app-token
-        uses: actions/create-github-app-token@v2
+        uses: actions/create-github-app-token@v3
         with:
-          app-id: ${{ vars.SWIFT_DNS_HELPER_APP_ID }}
+          client-id: ${{ vars.SWIFT_DNS_HELPER_CLIENT_ID }}
           private-key: ${{ secrets.SWIFT_DNS_HELPER_PRIVATE_KEY }}
 
       - name: Check out ${{ github.event.repository.name }}

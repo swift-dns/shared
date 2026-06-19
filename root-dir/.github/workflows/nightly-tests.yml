@@ -32,6 +32,8 @@ jobs:
     steps:
       - name: Check out ${{ github.event.repository.name }}
         uses: actions/checkout@v7
+        with:
+          persist-credentials: false
 
       - name: Install zstd for faster caching, and curl for codecov action
         run: |
@@ -188,6 +190,8 @@ jobs:
 
       - name: Check out ${{ github.event.repository.name }}
         uses: actions/checkout@v7
+        with:
+          persist-credentials: false
 
       - name: Set today's date
         run: echo "TODAY=$(date "+%Y-%m-%d")" >> $GITHUB_ENV
@@ -298,6 +302,8 @@ jobs:
 
       - name: Check out code
         uses: actions/checkout@v7
+        with:
+          persist-credentials: false
 
       - name: Replace symlinks with the actual files
         run: find . -type l -exec sh -c 'LINKED="$(readlink -f "{}")"; rm "{}"; cp -a "$LINKED" "{}"' \;

@@ -32,6 +32,8 @@ jobs:
     steps:
       - name: Check out ${{ github.event.repository.name }}
         uses: actions/checkout@v7
+        with:
+          persist-credentials: false
 
       - name: Install dependencies
         run: |
@@ -225,6 +227,8 @@ jobs:
 
       - name: Check out ${{ github.event.repository.name }}
         uses: actions/checkout@v7
+        with:
+          persist-credentials: false
 
       - name: Restore swiftly home
         id: "restore-home"
@@ -362,6 +366,8 @@ jobs:
 
       - name: Check out code
         uses: actions/checkout@v7
+        with:
+          persist-credentials: false
 
       - name: Replace symlinks with the actual files
         run: find . -type l -exec sh -c 'LINKED="$(readlink -f "{}")"; rm "{}"; cp -a "$LINKED" "{}"' \;
