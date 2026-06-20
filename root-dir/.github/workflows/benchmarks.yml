@@ -250,38 +250,29 @@ jobs:
             echo "changes-count=0" >> $GITHUB_OUTPUT
           fi
 
-      - name: Commit threshold changes to another branch
-        if: steps.check-modifications.outputs.has-modifications == 'true' && steps.commit-info.outputs.pr_number == ''
+      - name: Commit threshold changes
+        if: steps.check-modifications.outputs.has-modifications == 'true'
         id: commit-update
         run: |
-          CURRENT_BRANCH="${{ github.head_ref || github.ref_name }}"
-          NEW_BRANCH="thr-update/${CURRENT_BRANCH}"
+          SOURCE_BRANCH="${{ github.head_ref || github.ref_name }}"
 
-          echo "new-branch=${NEW_BRANCH}" >> $GITHUB_OUTPUT
+          if [[ -n '${{ steps.commit-info.outputs.pr_number }}' ]]; then
+            TARGET_BRANCH="${SOURCE_BRANCH}"
+          else
+            TARGET_BRANCH="thr-update/${SOURCE_BRANCH}"
+          fi
 
-          git checkout -B "${NEW_BRANCH}" "origin/${CURRENT_BRANCH}"
+          echo "branch=${TARGET_BRANCH}" >> $GITHUB_OUTPUT
+
+          git checkout -B "${TARGET_BRANCH}" "origin/${SOURCE_BRANCH}"
           git add "${{ env.THRESHOLDS_PATH }}"
           git commit -m "Update of benchmark thresholds with the deviated baseline
 
-          Committed to ${NEW_BRANCH} by ${RUN_LINK}"
+          Committed to ${TARGET_BRANCH} by ${RUN_LINK}"
 
-          git push -f origin "${NEW_BRANCH}"
+          git push -f origin "${TARGET_BRANCH}" || echo "Failed to push threshold changes to '${TARGET_BRANCH}'; continuing without failing the job."
 
           echo "commit-sha=$(git rev-parse HEAD)" >> $GITHUB_OUTPUT
-
-      - name: Commit threshold changes to the PR branch
-        if: steps.check-modifications.outputs.has-modifications == 'true' && steps.commit-info.outputs.pr_number != ''
-        run: |
-          CURRENT_BRANCH="${{ github.head_ref }}"
-
-          git checkout -B "${CURRENT_BRANCH}" "origin/${CURRENT_BRANCH}"
-          git checkout "${{ steps.commit-update.outputs.commit-sha }}" -- "${{ env.THRESHOLDS_PATH }}"
-          git add "${{ env.THRESHOLDS_PATH }}"
-          git commit -m "Update of benchmark thresholds with the deviated baseline
-
-          Committed to ${CURRENT_BRANCH} by ${RUN_LINK}"
-
-          git push origin "${CURRENT_BRANCH}" || echo "Failed to push threshold changes to '${CURRENT_BRANCH}'; continuing without failing the job."
 
       - name: Construct result comment if the benchmark-process succeeded
         run: |
@@ -308,9 +299,10 @@ jobs:
           esac
 
           if [[ '${{ steps.check-modifications.outputs.has-modifications }}' == 'true' ]]; then
-            SHORT_SHA="$(echo '${{ steps.commit-update.outputs.commit-sha }}' | cut -c 1-7)"
-            COMMIT_LINK="https://github.com/${{ github.repository }}/commit/${{ steps.commit-update.outputs.commit-sha }}"
-            BRANCH_NAME="${{ steps.commit-update.outputs.new-branch }}"
+            COMMIT_SHA='${{ steps.commit-update.outputs.commit-sha }}'
+            BRANCH_NAME='${{ steps.commit-update.outputs.branch }}'
+            SHORT_SHA="$(echo "${COMMIT_SHA}" | cut -c 1-7)"
+            COMMIT_LINK="https://github.com/${{ github.repository }}/commit/${COMMIT_SHA}"
             BRANCH_LINK="https://github.com/${{ github.repository }}/tree/${BRANCH_NAME}"
             echo '' >> comment.md
             echo "Pushed commit [${SHORT_SHA}](${COMMIT_LINK}) to branch [${BRANCH_NAME}](${BRANCH_LINK}) containing an update of current thresholds with the deviated baseline." >> comment.md
