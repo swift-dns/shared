@@ -58,7 +58,7 @@ jobs:
         env:
           GITHUB_OBJECT: ${{ toJson(github) }}
         run: |
-          SHOULD_RUN="$(.github/scripts/check-benchmark-relevance.bash)"
+          SHOULD_RUN="$(.github/scripts/check-benchmark-relevance.sh)"
           printf '%s\n' "should-run=${SHOULD_RUN}" >> "${GITHUB_OUTPUT}"
 
       - name: Construct skip comment
@@ -235,7 +235,7 @@ jobs:
             printf '%s\n' "Processing: ${file}"
             jq '.' "${file}" > "${file}.tmp" && mv "${file}.tmp" "${file}"
           done
-          .github/scripts/floor-thresholds.bash "${{ env.THRESHOLDS_PATH }}"
+          .github/scripts/floor-thresholds.sh "${{ env.THRESHOLDS_PATH }}"
 
       - name: Check for modifications
         if: steps.comparison.outputs.exit-status != '0'

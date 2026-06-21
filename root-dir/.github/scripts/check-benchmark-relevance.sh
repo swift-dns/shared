@@ -29,7 +29,9 @@ readonly base_sha head_sha
 base_sha: '${base_sha}'
 head_sha: '${head_sha}'"
 
-mapfile -d '' -t changed_files < <(git diff -z --name-only "${base_sha}...${head_sha}")
+mapfile -d '' -t changed_files < <(
+  git diff -z --name-only "${base_sha}...${head_sha}"
+)
 readonly changed_files
 
 # - Check force-run paths
@@ -69,7 +71,9 @@ readonly repo_root
 package_dump_json="$(swift package --package-path "${package_path}" dump-package)"
 readonly package_dump_json
 
-mapfile -d '' -t local_target_names < <(jq --raw-output0 '.targets[].name' <<< "${package_dump_json}")
+mapfile -d '' -t local_target_names < <(
+  jq --raw-output0 '.targets[].name' <<< "${package_dump_json}"
+)
 readonly local_target_names
 [[ "${#local_target_names[@]}" -gt 0 ]] \
   || fatal "swift package dump-package found no targets in package path '${package_path}'"
@@ -90,8 +94,10 @@ get_target_dependencies() {
   local target_name="${1:?get_target_dependencies requires a target name}"
 
   jq --raw-output0 --arg t "${target_name}" '
-    .targets[] | select(.name == $t) | .dependencies[]?
-    | (.byName[0]? // .target[0]?) // empty
+    .targets[]
+    | select(.name == $t)
+    | (.dependencies[]? | (.byName[0]? // .target[0]?) // empty),
+      (.pluginUsages[]?.plugin[0] // empty)
   ' <<< "${package_dump_json}"
 }
 
@@ -110,31 +116,51 @@ if [[ "${#benchmark_targets[@]}" -eq 0 ]]; then
 fi
 
 # - Find all local dependencies of the benchmark targets
-declare -A targets_to_visit=()
-for (( i = 0; i < ${#benchmark_targets[@]}; i++ )); do
-  target_name="${benchmark_targets[i]:?benchmark_targets[i] must be set}"
+declare -A seen=()
+declare -a targets_to_visit=()
+for target_name in "${benchmark_targets[@]}"; do
+  seen["${target_name}"]=1
+  targets_to_visit+=("${target_name}")
+done
+
+for (( i = 0; i < ${#targets_to_visit[@]}; i++ )); do
+  target_name="${targets_to_visit[i]}"
 
   while IFS= read -r -d '' dependency; do
     [[ -n "${dependency}" ]] || continue
 
-    if is_local_target "${dependency}"; then
-      targets_to_visit["${dependency}"]=1
+    if [[ -z "${seen[${dependency}]:-}" ]] && is_local_target "${dependency}"; then
+      seen["${dependency}"]=1
+      targets_to_visit+=("${dependency}")
     fi
   done < <(get_target_dependencies "${target_name}")
 done
 
 # - Find relevant directories to targets_to_visit
 declare -A relevant_directories=()
-for target_name in "${!targets_to_visit[@]}"; do
+for target_name in "${targets_to_visit[@]}"; do
   target_subpath="$(
     jq -r \
       --arg t "${target_name}" \
       '.targets[] | select(.name == $t) | .path // ""' <<< "${package_dump_json}"
   )"
+  target_type="$(
+    jq -r \
+      --arg t "${target_name}" \
+      '.targets[] | select(.name == $t) | .type' <<< "${package_dump_json}"
+  )"
+
+  # Skip non-local binary targets
+  if [[ "${target_type}" == "binary" && -z "${target_subpath}" ]]; then
+    continue
+  fi
+
   if [[ "${target_subpath}" == "." ]]; then
     target_dir="${package_path}"
   elif [[ -n "${target_subpath}" ]]; then
     target_dir="${package_path}/${target_subpath}"
+  elif [[ "${target_type}" == "plugin" ]]; then
+    target_dir="${package_path}/Plugins/${target_name}"
   else
     target_dir="${package_path}/Sources/${target_name}"
   fi

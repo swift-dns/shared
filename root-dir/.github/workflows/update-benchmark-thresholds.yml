@@ -134,7 +134,7 @@ jobs:
             printf '%s\n' "Processing: ${file}"
             jq '.' "${file}" > "${file}.tmp" && mv "${file}.tmp" "${file}"
           done
-          .github/scripts/floor-thresholds.bash "${{ env.THRESHOLDS_PATH }}"
+          .github/scripts/floor-thresholds.sh "${{ env.THRESHOLDS_PATH }}"
 
       - name: Check for modifications
         id: check-modifications
