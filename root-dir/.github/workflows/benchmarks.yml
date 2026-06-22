@@ -186,6 +186,10 @@ jobs:
             --format markdown \
             >> benchmark.md
 
+      - name: Floor static thresholds and baselines before comparison
+        run: |
+          .github/scripts/floor-thresholds.sh "${{ env.THRESHOLDS_PATH }}"
+
       - name: Compare '${{ steps.commit-info.outputs.title }}' against thresholds
         id: comparison
         run: |
@@ -227,14 +231,9 @@ jobs:
             --path "$PWD/${{ env.THRESHOLDS_PATH }}" \
             --range
 
-      - name: Format and floor threshold files
+      - name: Floor static thresholds and baselines
         if: steps.comparison.outputs.exit-status != '0'
         run: |
-          printf '%s\n' "Processing threshold files..."
-          for file in "${{ env.THRESHOLDS_PATH }}"/*.json; do
-            printf '%s\n' "Processing: ${file}"
-            jq '.' "${file}" > "${file}.tmp" && mv "${file}.tmp" "${file}"
-          done
           .github/scripts/floor-thresholds.sh "${{ env.THRESHOLDS_PATH }}"
 
       - name: Check for modifications
