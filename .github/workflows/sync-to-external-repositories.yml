@@ -59,7 +59,7 @@ jobs:
       - name: Mirror root-dir into ${{ matrix.repository }}
         run: rsync --archive --verbose source/root-dir/ ${{ matrix.repository }}/
 
-      - name: Build pull request body
+      - name: Build pull request description
         env:
           REPOSITORY: ${{ github.repository }}
           SERVER_URL: ${{ github.server_url }}
@@ -69,7 +69,12 @@ jobs:
           MIRROR_SUBDIR: root-dir
           COMMIT_LIMIT: "20"
           OUTPUT_FILE: ${{ env.PR_BODY_FILE }}
-        run: source/.github/scripts/build-pr-description.sh
+        run: |
+          source/.github/scripts/build-pr-description.sh
+
+      - name: Resolve short commit SHA
+        id: short-sha
+        run: printf 'value=%s\n' "${GITHUB_SHA:0:7}" >> "${GITHUB_OUTPUT}"
 
       - name: Create pull request
         uses: peter-evans/create-pull-request@5f6978faf089d4d20b00c7766989d076bb2fc7f1 # v8.1.1
@@ -79,6 +84,6 @@ jobs:
           branch: sync-files
           delete-branch: true
           sign-commits: true
-          commit-message: "Sync files from ${{ github.repository }}"
-          title: "Sync files from ${{ github.repository }}"
+          commit-message: "Sync files from ${{ github.repository }}@${{ github.sha }}"
+          title: "Sync files from ${{ github.repository }}@${{ steps.short-sha.outputs.value }}"
           body-path: ${{ env.PR_BODY_FILE }}
