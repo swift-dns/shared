@@ -30,6 +30,9 @@ jobs:
 
     timeout-minutes: 10
 
+    env:
+      PR_BODY_FILE: pr-body.md
+
     steps:
       - name: Generate swift-dns-helper token
         id: app-token
@@ -43,6 +46,7 @@ jobs:
         uses: actions/checkout@v7
         with:
           path: source
+          fetch-depth: 0
           persist-credentials: false
 
       - name: Check out ${{ matrix.repository }}
@@ -55,6 +59,18 @@ jobs:
       - name: Mirror root-dir into ${{ matrix.repository }}
         run: rsync --archive --verbose source/root-dir/ ${{ matrix.repository }}/
 
+      - name: Build pull request body
+        env:
+          REPOSITORY: ${{ github.repository }}
+          SERVER_URL: ${{ github.server_url }}
+          HEAD_SHA: ${{ github.sha }}
+          SOURCE_PATH: source
+          TARGET_PATH: ${{ matrix.repository }}
+          MIRROR_SUBDIR: root-dir
+          COMMIT_LIMIT: "20"
+          OUTPUT_FILE: ${{ env.PR_BODY_FILE }}
+        run: source/.github/scripts/build-pr-description.sh
+
       - name: Create pull request
         uses: peter-evans/create-pull-request@5f6978faf089d4d20b00c7766989d076bb2fc7f1 # v8.1.1
         with:
@@ -65,4 +81,4 @@ jobs:
           sign-commits: true
           commit-message: "Sync files from ${{ github.repository }}"
           title: "Sync files from ${{ github.repository }}"
-          body: "Automated sync from ${{ github.repository }}@${{ github.sha }}."
+          body-path: ${{ env.PR_BODY_FILE }}
