@@ -14,6 +14,7 @@ defaults:
 
 jobs:
   check-tests-relevance:
+    if: github.event.repository.name == 'swift-dns'
     runs-on: ubuntu-latest
 
     container: swift:6.3-noble
@@ -49,7 +50,7 @@ jobs:
 
   linux-integration-tests:
     needs: check-tests-relevance
-    if: ${{ !cancelled() && needs.check-tests-relevance.outputs.should-run != 'false' }}
+    if: ${{ !cancelled() && github.event.repository.name == 'swift-dns' && needs.check-tests-relevance.outputs.should-run != 'false' }}
 
     strategy:
       fail-fast: false
@@ -75,10 +76,7 @@ jobs:
       - name: Install dependencies
         run: |
           apt-get update
-          apt-get install -y zstd curl
-          if [[ "${{ github.event.repository.name }}" == 'swift-dns' ]]; then
-            apt-get install -y tcpdump
-          fi
+          apt-get install -y zstd curl tcpdump
 
       - name: Restore .build
         if: ${{ runner.debug != '1' }}
@@ -107,10 +105,8 @@ jobs:
       - name: Run tests
         id: tests-run
         run: |
-          if [[ "${{ github.event.repository.name }}" == 'swift-dns' ]]; then
-            tcpdump -w dns.pcap 'port 53 and (host 8.8.4.4 or host 240.1.2.3)' &
-            TCPDUMP_PID=$!
-          fi
+          tcpdump -w dns.pcap 'port 53 and (host 8.8.4.4 or host 240.1.2.3)' &
+          TCPDUMP_PID=$!
 
           # Disable 'set -e' to prevent the script from exiting on non-zero exit codes
           set +e
@@ -122,9 +118,7 @@ jobs:
           printf '%s\n' "exit-status=$?" >> "${GITHUB_OUTPUT}"
           set -e
 
-          if [[ "${{ github.event.repository.name }}" == 'swift-dns' ]]; then
-            kill "${TCPDUMP_PID}"
-          fi
+          kill "${TCPDUMP_PID}"
 
       - name: Calculate capture file name
         id: calculate-capture-file-name
@@ -345,10 +339,8 @@ jobs:
       - name: Run tests while capturing packets
         id: tests-run
         run: |
-          if [[ "${{ github.event.repository.name }}" == 'swift-dns' ]]; then
-            sudo tcpdump -w dns.pcap 'port 53 and (host 8.8.4.4 or host 240.1.2.3)' &
-            TCPDUMP_PID=$!
-          fi
+          sudo tcpdump -w dns.pcap 'port 53 and (host 8.8.4.4 or host 240.1.2.3)' &
+          TCPDUMP_PID=$!
 
           # Disable 'set -e' to prevent the script from exiting on non-zero exit codes
           set +e
@@ -360,9 +352,7 @@ jobs:
           printf '%s\n' "exit-status=$?" >> "${GITHUB_OUTPUT}"
           set -e
 
-          if [[ "${{ github.event.repository.name }}" == 'swift-dns' ]]; then
-            kill "${TCPDUMP_PID}"
-          fi
+          kill "${TCPDUMP_PID}"
 
       - name: Calculate capture file name
         id: calculate-capture-file-name
