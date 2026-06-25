@@ -12,9 +12,6 @@ defaults:
   run:
     shell: bash --noprofile --norc -Eeuo pipefail {0}
 
-env:
-  RUN_LINK: "https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}"
-
 jobs:
   check-tests-relevance:
     runs-on: ubuntu-latest
@@ -24,20 +21,12 @@ jobs:
     timeout-minutes: 10
 
     permissions:
-      pull-requests: write # For the skip comment
       contents: read
 
     outputs:
       should-run: ${{ steps.decide.outputs.should-run }}
 
     steps:
-      - name: Generate swift-dns-helper token
-        id: app-token
-        uses: actions/create-github-app-token@v3
-        with:
-          client-id: ${{ vars.SWIFT_DNS_HELPER_CLIENT_ID }}
-          private-key: ${{ secrets.SWIFT_DNS_HELPER_PRIVATE_KEY }}
-
       - name: Install jq
         run: apt-get update -y && apt-get install -y jq
 
@@ -57,21 +46,6 @@ jobs:
         run: |
           SHOULD_RUN="$(.github/scripts/check-tests-relevance.sh)"
           printf '%s\n' "should-run=${SHOULD_RUN}" >> "${GITHUB_OUTPUT}"
-
-      - name: Construct skip comment
-        if: steps.decide.outputs.should-run == 'false'
-        run: |
-          printf '%s\n' "## [Integration Tests](${RUN_LINK}) Report" >> skip-comment.md
-          printf '%s\n' '**⏭️ No test-relevant changes — integration tests skipped ⏭️**' >> skip-comment.md
-
-      - name: Comment in PR
-        if: steps.decide.outputs.should-run == 'false'
-        uses: thollander/actions-comment-pull-request@24bffb9b452ba05a4f3f77933840a6a841d1b32b # v3.0.1
-        with:
-          github-token: ${{ steps.app-token.outputs.token }}
-          pr-number: ${{ github.event.pull_request.number }}
-          file-path: skip-comment.md
-          comment-tag: integration-tests-ci-comment
 
   linux-integration-tests:
     needs: check-tests-relevance
