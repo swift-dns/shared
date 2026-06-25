@@ -43,6 +43,7 @@ jobs:
         id: decide
         env:
           GITHUB_OBJECT: ${{ toJson(github) }}
+          WORKFLOW_FILE: .github/workflows/nightly-tests.yml
         run: |
           SHOULD_RUN="$(.github/scripts/check-tests-relevance.sh)"
           printf '%s\n' "should-run=${SHOULD_RUN}" >> "${GITHUB_OUTPUT}"
