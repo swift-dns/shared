@@ -98,9 +98,9 @@ jobs:
         with:
           persist-credentials: false
 
-      - name: Install zstd for faster caching, and curl for codecov action
+      - name: Install dependencies
         run: |
-          apt-get update -y
+          apt-get update
           apt-get install -y zstd curl
 
       - name: Restore .build
@@ -361,8 +361,10 @@ jobs:
     timeout-minutes: 30
 
     steps:
-      - name: Ensure zstd is available for faster caching
-        run: sudo apt-get update -yq && sudo apt-get install -yq zstd
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y zstd
 
       - name: Check out code
         uses: actions/checkout@v7

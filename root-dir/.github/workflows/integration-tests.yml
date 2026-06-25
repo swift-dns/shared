@@ -100,7 +100,7 @@ jobs:
 
       - name: Install dependencies
         run: |
-          apt-get update -y
+          apt-get update
           apt-get install -y zstd curl
           if [[ "${{ github.event.repository.name }}" == 'swift-dns' ]]; then
             apt-get install -y tcpdump
@@ -290,6 +290,7 @@ jobs:
           xcode-version: ${{ matrix.xcode.version }}
 
       - name: Install tcpdump for packet capture
+        if: ${{ github.event.repository.name == 'swift-dns' }}
         run: brew install tcpdump
 
       - name: Check out ${{ github.event.repository.name }}
@@ -370,8 +371,10 @@ jobs:
       - name: Run tests while capturing packets
         id: tests-run
         run: |
-          sudo tcpdump -w dns.pcap 'port 53 and (host 8.8.4.4 or host 240.1.2.3)' &
-          TCPDUMP_PID=$!
+          if [[ "${{ github.event.repository.name }}" == 'swift-dns' ]]; then
+            sudo tcpdump -w dns.pcap 'port 53 and (host 8.8.4.4 or host 240.1.2.3)' &
+            TCPDUMP_PID=$!
+          fi
 
           # Disable 'set -e' to prevent the script from exiting on non-zero exit codes
           set +e
@@ -383,7 +386,9 @@ jobs:
           printf '%s\n' "exit-status=$?" >> "${GITHUB_OUTPUT}"
           set -e
 
-          kill "${TCPDUMP_PID}"
+          if [[ "${{ github.event.repository.name }}" == 'swift-dns' ]]; then
+            kill "${TCPDUMP_PID}"
+          fi
 
       - name: Calculate capture file name
         id: calculate-capture-file-name
@@ -425,8 +430,10 @@ jobs:
     timeout-minutes: 30
 
     steps:
-      - name: Ensure zstd is available for faster caching
-        run: sudo apt-get update -yq && sudo apt-get install -yq zstd
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y zstd
 
       - name: Check out code
         uses: actions/checkout@v7

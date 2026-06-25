@@ -98,9 +98,9 @@ jobs:
         with:
           persist-credentials: false
 
-      - name: Install zstd for faster caching, and curl for codecov action
+      - name: Install dependencies
         run: |
-          apt-get update -y
+          apt-get update
           apt-get install -y zstd curl
 
       - name: Restore .build
