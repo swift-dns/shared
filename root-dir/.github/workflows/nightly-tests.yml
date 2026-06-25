@@ -14,7 +14,6 @@ defaults:
 
 jobs:
   linux-nightly-tests:
-
     strategy:
       fail-fast: false
       matrix:

@@ -86,7 +86,6 @@ jobs:
 
       - name: Calculate capture file name
         id: calculate-capture-file-name
-        if: ${{ github.event.repository.name == 'swift-dns' }}
         run: |
           RESULT="${{ steps.tests-run.outputs.exit-status == 0 && 'success' || 'failure' }}"
           TIMESTAMP="$(date -u +"%Y-%m-%d-%H-%M-%S")"
@@ -99,7 +98,6 @@ jobs:
           mv dns.pcap "${FILE_NAME}.pcap"
 
       - name: Archive packet capture
-        if: ${{ github.event.repository.name == 'swift-dns' }}
         uses: actions/upload-artifact@v7
         with:
           name: "${{ steps.calculate-capture-file-name.outputs.file_name }}"
@@ -109,6 +107,8 @@ jobs:
         run: exit ${{ steps.tests-run.outputs.exit-status }}
 
   cache-swiftly-toolchain-for-macos:
+    if: ${{ github.event.repository.name == 'swift-dns' }}
+
     strategy:
       fail-fast: false
       matrix:
@@ -186,6 +186,8 @@ jobs:
           key: "${{ github.event.repository.name }}-swiftly-toolchain-integration-tests-${{ matrix.swift.version }}-${{ runner.os }}"
 
   macos-integration-tests:
+    if: ${{ github.event.repository.name == 'swift-dns' }}
+
     strategy:
       fail-fast: false
       matrix:
@@ -218,7 +220,6 @@ jobs:
           xcode-version: ${{ matrix.xcode.version }}
 
       - name: Install tcpdump for packet capture
-        if: ${{ github.event.repository.name == 'swift-dns' }}
         run: brew install tcpdump
 
       - name: Check out ${{ github.event.repository.name }}
@@ -337,6 +338,8 @@ jobs:
         run: exit ${{ steps.tests-run.outputs.exit-status }}
 
   android-integration-tests:
+    if: ${{ github.event.repository.name == 'swift-dns' }}
+
     strategy:
       fail-fast: false
       matrix:
