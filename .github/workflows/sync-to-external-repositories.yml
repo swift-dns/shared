@@ -32,6 +32,7 @@ jobs:
 
     env:
       PR_BODY_FILE: pr-body.md
+      SYNC_BRANCH: sync-files
 
     steps:
       - name: Generate swift-dns-helper token
@@ -76,14 +77,36 @@ jobs:
         id: short-sha
         run: printf 'value=%s\n' "${GITHUB_SHA:0:7}" >> "${GITHUB_OUTPUT}"
 
-      - name: Create pull request
-        uses: peter-evans/create-pull-request@5f6978faf089d4d20b00c7766989d076bb2fc7f1 # v8.1.1
-        with:
-          token: ${{ steps.app-token.outputs.token }}
-          path: ${{ matrix.repository }}
-          branch: sync-files
-          delete-branch: true
-          sign-commits: true
-          commit-message: "Sync files from ${{ github.repository }}@${{ github.sha }}"
-          title: "Sync files from ${{ github.repository }}@${{ steps.short-sha.outputs.value }}"
-          body-path: ${{ env.PR_BODY_FILE }}
+      - name: Resolve ${{ matrix.repository }} base branch
+        id: base
+        env:
+          TARGET_PATH: ${{ matrix.repository }}
+        run: |
+          printf 'branch=%s\n' "$(git -C "${TARGET_PATH}" rev-parse --abbrev-ref HEAD)" >> "${GITHUB_OUTPUT}"
+          printf 'sha=%s\n' "$(git -C "${TARGET_PATH}" rev-parse HEAD)" >> "${GITHUB_OUTPUT}"
+
+      - name: Create signed sync commit
+        id: sync-commit
+        env:
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+          REPOSITORY: ${{ matrix.repository }}
+          BRANCH: ${{ env.SYNC_BRANCH }}
+          BASE_SHA: ${{ steps.base.outputs.sha }}
+          COMMIT_MESSAGE: "Sync files from ${{ github.repository }}@${{ github.sha }}"
+          WORK_DIR: ${{ matrix.repository }}
+        run: |
+          export OUTPUT_FILE="${GITHUB_OUTPUT}"
+
+          source/root-dir/.github/scripts/commit-signed.sh
+
+      - name: Reconcile the sync pull request
+        env:
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+          REPOSITORY: ${{ matrix.repository }}
+          HEAD_BRANCH: ${{ env.SYNC_BRANCH }}
+          BASE_BRANCH: ${{ steps.base.outputs.branch }}
+          HAS_CHANGES: ${{ steps.sync-commit.outputs.has-changes }}
+          TITLE: "Sync files from ${{ github.repository }}@${{ steps.short-sha.outputs.value }}"
+          BODY_FILE: ${{ env.PR_BODY_FILE }}
+        run: |
+          source/.github/scripts/sync-pull-request.sh
