@@ -19,10 +19,12 @@ readonly output_file="${OUTPUT_FILE:?OUTPUT_FILE must be the file path to write 
 
 readonly mirror_prefix="${mirror_subdir}/"
 
-[[ "${head_sha}" =~ ^[0-9a-f]{40}$ ]] \
-  || fatal "HEAD_SHA is not a 40-char commit SHA: '${head_sha}'"
-[[ "${commit_limit}" =~ ^[1-9][0-9]*$ ]] \
-  || fatal "COMMIT_LIMIT is not a positive integer: '${commit_limit}'"
+if [[ ! "${head_sha}" =~ ^[0-9a-f]{40}$ ]]; then
+  fatal "HEAD_SHA is not a 40-char commit SHA: '${head_sha}'"
+fi
+if [[ ! "${commit_limit}" =~ ^[1-9][0-9]*$ ]]; then
+  fatal "COMMIT_LIMIT is not a positive integer: '${commit_limit}'"
+fi
 [[ -d "${source_path}" ]] || fatal "SOURCE_PATH directory does not exist: '${source_path}'"
 [[ -d "${target_path}" ]] || fatal "TARGET_PATH directory does not exist: '${target_path}'"
 
@@ -79,11 +81,63 @@ collect_related_commits() {
   return 0
 }
 
+declare -A target_modes=()
+load_target_modes() {
+  local entry mode rel_path
+
+  while IFS= read -r -d '' entry; do
+    mode="${entry%% *}"
+    rel_path="${entry#*$'\t'}"
+    target_modes["${rel_path}"]="${mode}"
+  done < <(git -C "${target_path}" ls-tree -r -z HEAD)
+  return 0
+}
+
+# Lists mirrored files that are executable in the source but will not be in the target.
+# Signed commits go through the GitHub API, whose file additions carry no mode.
+collect_mode_fixes() {
+  local entry mode tree_path rel_path
+
+  while IFS= read -r -d '' entry; do
+    mode="${entry%% *}"
+    [[ "${mode}" == "100755" ]] || continue
+
+    tree_path="${entry#*$'\t'}"
+    rel_path="${tree_path#"${mirror_prefix}"}"
+    if [[ "${target_modes[${rel_path}]-}" != "100755" ]]; then
+      printf -- '%s\n' "${rel_path}"
+    fi
+  done < <(git -C "${source_path}" ls-tree -r -z "${head_sha}" -- "${mirror_subdir}/")
+  return 0
+}
+
+render_mode_fix_notice() {
+  local paths="${1:?render_mode_fix_notice requires a newline-separated path list}"
+  local rel_path quoted_paths=""
+
+  while IFS= read -r rel_path; do
+    quoted_paths+=" '${rel_path}'"
+  done <<< "${paths}"
+
+  printf -- '%s\n' "The GitHub API cannot set file modes. Restore them before merging:"
+  printf -- '\n%s\n' '```sh'
+  printf -- '%s\n' "chmod u+x${quoted_paths}"
+  printf -- '%s\n' '```'
+  return 0
+}
+
 related_commits="$(collect_related_commits)"
+
+load_target_modes
+mode_fixes="$(collect_mode_fixes)"
 
 body="Automated sync from ${repository}@${head_sha}."
 if [[ -n "${related_commits}" ]]; then
   body+=$'\n\nRelated commits:\n'"${related_commits}"
+fi
+if [[ -n "${mode_fixes}" ]]; then
+  body+=$'\n\n'"$(render_mode_fix_notice "${mode_fixes}")"
+  log "⚠️ $(printf -- '%s\n' "${mode_fixes}" | wc -l | tr -d ' ') file(s) need their executable bit restored after merge."
 fi
 
 printf -- '%s\n' "${body}" > "${output_file}"
