@@ -74,9 +74,10 @@ api_failure_details() {
   return 0
 }
 
-# Lists the open pull requests from HEAD_BRANCH into 'response_file'.
-fetch_open_pull_requests() {
-  local query="state=open&head=${repository_owner}:${head_branch}&base=${base_branch}"
+# Lists the pull requests from HEAD_BRANCH into 'response_file', newest first.
+fetch_pull_requests() {
+  local query="state=all&head=${repository_owner}:${head_branch}&base=${base_branch}"
+  query+="&sort=created&direction=desc&per_page=100"
   local url="${api_url}/repos/${repository}/pulls?${query}"
   local status
   status="$(github_api GET "${url}" "" "${response_file}")"
@@ -132,10 +133,14 @@ update_pull_request() {
   local status
 
   jq --null-input --arg title "${title}" --rawfile body "${body_file}" \
-    '{title: $title, body: $body}' > "${payload_file}"
+    '{title: $title, body: $body, state: "open"}' > "${payload_file}"
   status="$(github_api PATCH "${url}" "${payload_file}" "${response_file}")"
   if [[ "${status}" != "200" ]]; then
     fatal "Failed to update pull request #${pull_request_number}:" \
+      "$(api_failure_details "${status}" "${response_file}")"
+  fi
+  if [[ "$(jq --raw-output '.state' "${response_file}")" != "open" ]]; then
+    fatal "Pull request #${pull_request_number} of '${repository}' is not open after the update;" \
       "$(api_failure_details "${status}" "${response_file}")"
   fi
 
@@ -148,8 +153,11 @@ if [[ "${has_changes}" == "false" ]]; then
   exit 0
 fi
 
-fetch_open_pull_requests
-existing_pull_request="$(jq --raw-output 'first(.[].number) // empty' "${response_file}")"
+fetch_pull_requests
+existing_pull_request="$(jq --raw-output '
+  ((first(.[] | select(.state == "open")) // first(.[] | select(.merged_at == null))) | .number)
+  // empty
+' "${response_file}")"
 readonly existing_pull_request
 
 if [[ -n "${existing_pull_request}" ]]; then
