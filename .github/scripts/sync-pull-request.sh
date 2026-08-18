@@ -127,14 +127,32 @@ create_pull_request() {
   return 0
 }
 
+# Prints why GitHub rejected the state change; returns 1 when it rejected something else.
+reopen_rejection_reason() {
+  local response_body_file="${1:?reopen_rejection_reason requires a response body file path}"
+  local reason
+  reason="$(jq --raw-output --exit-status '
+    first(.errors[]? | select(.field == "state") | .message)
+  ' "${response_body_file}" 2> /dev/null)" || return 1
+
+  printf -- '%s' "${reason}"
+  return 0
+}
+
+# Returns 1 when the pull request is closed and GitHub refuses to reopen it, which is
+# permanent once its head branch has been deleted or force-pushed.
 update_pull_request() {
   local pull_request_number="${1:?update_pull_request requires a pull request number}"
   local url="${api_url}/repos/${repository}/pulls/${pull_request_number}"
-  local status
+  local status rejection
 
   jq --null-input --arg title "${title}" --rawfile body "${body_file}" \
     '{title: $title, body: $body, state: "open"}' > "${payload_file}"
   status="$(github_api PATCH "${url}" "${payload_file}" "${response_file}")"
+  if [[ "${status}" == "422" ]] && rejection="$(reopen_rejection_reason "${response_file}")"; then
+    log "Cannot reopen pull request #${pull_request_number} of '${repository}': ${rejection}"
+    return 1
+  fi
   if [[ "${status}" != "200" ]]; then
     fatal "Failed to update pull request #${pull_request_number}:" \
       "$(api_failure_details "${status}" "${response_file}")"
@@ -160,8 +178,8 @@ existing_pull_request="$(jq --raw-output '
 ' "${response_file}")"
 readonly existing_pull_request
 
-if [[ -n "${existing_pull_request}" ]]; then
-  update_pull_request "${existing_pull_request}"
-else
-  create_pull_request
+if [[ -n "${existing_pull_request}" ]] && update_pull_request "${existing_pull_request}"; then
+  exit 0
 fi
+
+create_pull_request
