@@ -257,9 +257,11 @@ jobs:
           BASE_SHA="$(git rev-parse "origin/${SOURCE_BRANCH}")"
           git checkout -B "${TARGET_BRANCH}" "origin/${SOURCE_BRANCH}"
 
+          BENCHMARKED_COMMIT="$(START_REF="${BASE_SHA}" .github/scripts/latest-non-bot-commit.sh)"
           COMMIT_MESSAGE="$(
-            printf -- '%s\n\n%s\n' \
+            printf -- '%s\n\n%s\n%s\n' \
               "Update of benchmark thresholds with the deviated baseline" \
+              "Benchmarked commit: ${BENCHMARKED_COMMIT}" \
               "Committed to ${TARGET_BRANCH} by ${RUN_LINK}"
           )"
           BRANCH="${TARGET_BRANCH}"
