@@ -1,0 +1,38 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://raw.githubusercontent.com/swift-dns/shared/refs/heads/main/.github/schemas/ci-config.schema.json",
+  "title": "CI configuration",
+  "description": "Turns off the CI jobs that a repository does not want to run. Every repository mirrored from swift-dns/shared must ship a '.github/ci-config.json'; a key that is absent from it leaves the jobs it gates enabled.",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "$schema": {
+      "type": "string",
+      "description": "The URL of this schema."
+    },
+    "integration-tests": {
+      "type": "boolean",
+      "description": "Every job of the 'integration-tests' workflow."
+    },
+    "android": {
+      "type": "boolean",
+      "description": "The 'android-unit', 'android-nightly-tests' and 'android-integration-tests' jobs."
+    },
+    "benchmarks": {
+      "type": "boolean",
+      "description": "The 'benchmarks', 'update-benchmark-thresholds' and 'export-benchmark-results' workflows."
+    },
+    "musl": {
+      "type": "boolean",
+      "description": "The 'musl-unit' and 'musl-nightly-tests' jobs."
+    },
+    "wasm": {
+      "type": "boolean",
+      "description": "The 'wasi-unit' and 'wasi-nightly-tests' jobs."
+    },
+    "windows": {
+      "type": "boolean",
+      "description": "The 'windows-unit' and 'windows-nightly-tests' jobs."
+    }
+  }
+}

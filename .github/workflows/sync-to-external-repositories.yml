@@ -21,7 +21,6 @@ jobs:
       fail-fast: false
       matrix:
         repository:
-          - swift-dns/swift-tiny-sequence
           - swift-dns/swift-idna
           - swift-dns/swift-endpoint
           - swift-dns/swift-dns

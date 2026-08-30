@@ -384,6 +384,7 @@ jobs:
       - name: Check relevance
         id: check-relevance
         env:
+          JOB_KEYS: "windows"
           GITHUB_TOKEN: ${{ github.token }}
           HEAD_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
         run: |
@@ -443,6 +444,7 @@ jobs:
       - name: Check relevance
         id: check-relevance
         env:
+          JOB_KEYS: "android"
           GITHUB_TOKEN: ${{ github.token }}
           HEAD_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
         run: |
@@ -511,6 +513,7 @@ jobs:
       - name: Check relevance
         id: check-relevance
         env:
+          JOB_KEYS: "musl"
           GITHUB_TOKEN: ${{ github.token }}
           HEAD_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
         run: |
@@ -581,6 +584,7 @@ jobs:
       - name: Check relevance
         id: check-relevance
         env:
+          JOB_KEYS: "wasm"
           GITHUB_TOKEN: ${{ github.token }}
           HEAD_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
         run: |
