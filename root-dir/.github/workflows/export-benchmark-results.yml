@@ -113,7 +113,7 @@ jobs:
         id: calculate-archive-file-name
         run: |
           TIMESTAMP="$(date -u +"%Y-%m-%d-%H-%M-%S")"
-          FILE_NAME="swift-dns_benchmark_results_${TIMESTAMP}"
+          FILE_NAME="${{ github.event.repository.name }}_benchmark_results_${TIMESTAMP}"
 
           if [[ -n '${{ inputs.target }}' ]]; then
             TARGET="$(printf '%s' '${{ inputs.target }}' | tr ' ' '_')"

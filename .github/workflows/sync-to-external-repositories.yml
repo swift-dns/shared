@@ -25,6 +25,7 @@ jobs:
           - swift-dns/swift-idna
           - swift-dns/swift-endpoint
           - swift-dns/swift-dns
+          - swift-dns/swift-system-clock
 
     runs-on: ubuntu-latest
 
