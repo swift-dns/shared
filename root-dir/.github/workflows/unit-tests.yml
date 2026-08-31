@@ -619,3 +619,144 @@ jobs:
         with:
           path: .build
           key: "${{ github.event.repository.name }}-unit-tests-wasi-${{ matrix.config.mode }}-build-${{ matrix.swift-image.name }}-${{ runner.os }}-${{ hashFiles('./Package.resolved') }}"
+
+  embedded-wasm-unit:
+    strategy:
+      fail-fast: false
+      matrix:
+        swift-image:
+          - name: swift:6.3-noble
+        swift:
+          - version: 6.3
+        config:
+          - mode: "debug"
+          - mode: "release"
+
+    runs-on: ubuntu-latest
+
+    container: ${{ matrix.swift-image.name }}
+
+    timeout-minutes: 30
+
+    permissions:
+      actions: read # For reading the previous commit's workflow runs
+      contents: read
+
+    steps:
+      - name: Check out ${{ github.event.repository.name }}
+        uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      - name: Install dependencies
+        run: |
+          apt-get update
+          apt-get install -y zstd curl jq
+
+      - name: Check relevance
+        id: check-relevance
+        env:
+          JOB_KEYS: "wasm embedded"
+          GITHUB_TOKEN: ${{ github.token }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: |
+          SHOULD_RUN="$(.github/scripts/check-relevance.sh)"
+          printf '%s\n' "should-run=${SHOULD_RUN}" >> "${GITHUB_OUTPUT}"
+
+      - name: Restore .build
+        if: ${{ steps.check-relevance.outputs.should-run == 'true' && runner.debug != '1' }}
+        id: "restore-cache"
+        uses: actions/cache/restore@v6
+        with:
+          path: .build
+          key: "${{ github.event.repository.name }}-unit-tests-embedded-wasm-${{ matrix.config.mode }}-build-${{ matrix.swift-image.name }}-${{ runner.os }}-${{ hashFiles('./Package.resolved') }}"
+          restore-keys: "${{ github.event.repository.name }}-unit-tests-embedded-wasm-${{ matrix.config.mode }}-build-${{ matrix.swift-image.name }}-${{ runner.os }}-"
+
+      # Embedded Swift has no swift-testing or XCTest, so only the library is compiled.
+      - name: Build ${{ github.event.repository.name }}
+        if: ${{ steps.check-relevance.outputs.should-run == 'true' }}
+        env:
+          SDK: embedded-wasm
+          SWIFT_VERSION: ${{ matrix.swift.version }}
+          BUILD_MODE: ${{ matrix.config.mode }}
+          BUILD_FLAGS: >-
+            --explicit-target-dependency-import-check error
+            -Xswiftc -require-explicit-sendable
+        run: .github/scripts/build-with-sdk.sh
+
+      - name: Cache .build
+        if: ${{ steps.check-relevance.outputs.should-run == 'true' && steps.restore-cache.outputs.cache-hit != 'true' }}
+        uses: actions/cache/save@v6
+        with:
+          path: .build
+          key: "${{ github.event.repository.name }}-unit-tests-embedded-wasm-${{ matrix.config.mode }}-build-${{ matrix.swift-image.name }}-${{ runner.os }}-${{ hashFiles('./Package.resolved') }}"
+
+  embedded-baremetal-unit:
+    strategy:
+      fail-fast: false
+      matrix:
+        swift-image:
+          - name: swift:6.3-noble
+        triple:
+          - name: armv7em-none-none-eabi
+          - name: aarch64-none-none-elf
+          - name: riscv32-none-none-eabi
+
+    runs-on: ubuntu-latest
+
+    container: ${{ matrix.swift-image.name }}
+
+    timeout-minutes: 30
+
+    permissions:
+      actions: read # For reading the previous commit's workflow runs
+      contents: read
+
+    steps:
+      - name: Check out ${{ github.event.repository.name }}
+        uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      - name: Install dependencies
+        run: |
+          apt-get update
+          apt-get install -y zstd curl jq
+
+      - name: Check relevance
+        id: check-relevance
+        env:
+          JOB_KEYS: "embedded"
+          GITHUB_TOKEN: ${{ github.token }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: |
+          SHOULD_RUN="$(.github/scripts/check-relevance.sh)"
+          printf '%s\n' "should-run=${SHOULD_RUN}" >> "${GITHUB_OUTPUT}"
+
+      - name: Restore .build
+        if: ${{ steps.check-relevance.outputs.should-run == 'true' && runner.debug != '1' }}
+        id: "restore-cache"
+        uses: actions/cache/restore@v6
+        with:
+          path: .build
+          key: "${{ github.event.repository.name }}-unit-tests-embedded-baremetal-${{ matrix.triple.name }}-build-${{ matrix.swift-image.name }}-${{ runner.os }}-${{ hashFiles('./Package.resolved') }}"
+          restore-keys: "${{ github.event.repository.name }}-unit-tests-embedded-baremetal-${{ matrix.triple.name }}-build-${{ matrix.swift-image.name }}-${{ runner.os }}-"
+
+      # Embedded Swift needs whole-module optimization, which only the release configuration turns on.
+      - name: Build ${{ github.event.repository.name }}
+        if: ${{ steps.check-relevance.outputs.should-run == 'true' }}
+        run: |
+          swift build \
+            --build-system native \
+            --triple ${{ matrix.triple.name }} \
+            --toolset .github/toolsets/embedded.json \
+            --explicit-target-dependency-import-check error \
+            -Xswiftc -require-explicit-sendable \
+            -c release
+
+      - name: Cache .build
+        if: ${{ steps.check-relevance.outputs.should-run == 'true' && steps.restore-cache.outputs.cache-hit != 'true' }}
+        uses: actions/cache/save@v6
+        with:
+          path: .build
+          key: "${{ github.event.repository.name }}-unit-tests-embedded-baremetal-${{ matrix.triple.name }}-build-${{ matrix.swift-image.name }}-${{ runner.os }}-${{ hashFiles('./Package.resolved') }}"

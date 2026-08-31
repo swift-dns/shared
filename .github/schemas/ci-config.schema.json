@@ -28,7 +28,11 @@
     },
     "wasm": {
       "type": "boolean",
-      "description": "The 'wasi-unit' and 'wasi-nightly-tests' jobs."
+      "description": "The 'wasi-unit', 'wasi-nightly-tests', 'embedded-wasm-unit' and 'embedded-wasm-nightly-tests' jobs."
+    },
+    "embedded": {
+      "type": "boolean",
+      "description": "The 'embedded-wasm-unit', 'embedded-wasm-nightly-tests', 'embedded-baremetal-unit' and 'embedded-baremetal-nightly-tests' jobs."
     },
     "windows": {
       "type": "boolean",
