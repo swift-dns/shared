@@ -579,7 +579,7 @@ jobs:
       - name: Install dependencies
         run: |
           apt-get update
-          apt-get install -y zstd curl jq
+          apt-get install -y zstd curl jq xz-utils
 
       - name: Check relevance
         id: check-relevance
@@ -600,7 +600,6 @@ jobs:
           key: "${{ github.event.repository.name }}-unit-tests-wasi-${{ matrix.config.mode }}-build-${{ matrix.swift-image.name }}-${{ runner.os }}-${{ hashFiles('./Package.resolved') }}"
           restore-keys: "${{ github.event.repository.name }}-unit-tests-wasi-${{ matrix.config.mode }}-build-${{ matrix.swift-image.name }}-${{ runner.os }}-"
 
-      # WASI has no host to run the built tests on, so the test target is compiled but not run.
       - name: Build ${{ github.event.repository.name }}
         if: ${{ steps.check-relevance.outputs.should-run == 'true' }}
         env:
@@ -619,6 +618,16 @@ jobs:
         with:
           path: .build
           key: "${{ github.event.repository.name }}-unit-tests-wasi-${{ matrix.config.mode }}-build-${{ matrix.swift-image.name }}-${{ runner.os }}-${{ hashFiles('./Package.resolved') }}"
+
+      - name: Run tests with wasmtime
+        if: ${{ steps.check-relevance.outputs.should-run == 'true' }}
+        env:
+          BUILD_MODE: ${{ matrix.config.mode }}
+          WASMTIME_VERSION: "48.0.1"
+          WASMTIME_SHA256: "4c2e31b68ad99e0a519f225a261fda099eb15f056d4a24fdb3c2a46517bde1df"
+          TEST_FLAGS: >-
+            --skip IntegrationTests.
+        run: .github/scripts/test-with-wasmtime.sh
 
   embedded-wasm-unit:
     strategy:

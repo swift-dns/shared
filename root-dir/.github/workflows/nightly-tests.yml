@@ -646,7 +646,7 @@ jobs:
       - name: Install dependencies
         run: |
           apt-get update
-          apt-get install -y zstd curl jq
+          apt-get install -y zstd curl jq xz-utils
 
       - name: Check relevance
         id: check-relevance
@@ -658,7 +658,6 @@ jobs:
           SHOULD_RUN="$(.github/scripts/check-relevance.sh)"
           printf '%s\n' "should-run=${SHOULD_RUN}" >> "${GITHUB_OUTPUT}"
 
-      # WASI has no host to run the built tests on, so the test target is compiled but not run.
       - name: Build ${{ github.event.repository.name }}
         if: ${{ steps.check-relevance.outputs.should-run == 'true' }}
         env:
@@ -670,6 +669,16 @@ jobs:
             --explicit-target-dependency-import-check error
             -Xswiftc -require-explicit-sendable
         run: .github/scripts/build-with-sdk.sh
+
+      - name: Run tests with wasmtime
+        if: ${{ steps.check-relevance.outputs.should-run == 'true' }}
+        env:
+          BUILD_MODE: ${{ matrix.config.mode }}
+          WASMTIME_VERSION: "48.0.1"
+          WASMTIME_SHA256: "4c2e31b68ad99e0a519f225a261fda099eb15f056d4a24fdb3c2a46517bde1df"
+          TEST_FLAGS: >-
+            --skip IntegrationTests.
+        run: .github/scripts/test-with-wasmtime.sh
 
   embedded-wasm-nightly-tests:
     strategy:
