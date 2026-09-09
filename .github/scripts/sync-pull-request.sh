@@ -172,8 +172,18 @@ if [[ "${has_changes}" == "false" ]]; then
 fi
 
 fetch_pull_requests
-existing_pull_request="$(jq --raw-output '
-  ((first(.[] | select(.state == "open")) // first(.[] | select(.merged_at == null))) | .number)
+# GitHub drops the 'head' filter instead of rejecting it when its owner or its branch is empty,
+# answering with every pull request, so the response is narrowed down again before it is updated.
+existing_pull_request="$(jq --raw-output \
+  --arg repository "${repository}" \
+  --arg head_branch "${head_branch}" \
+  --arg base_branch "${base_branch}" '
+  [ .[]
+    | select(.head.ref == $head_branch)
+    | select(.base.ref == $base_branch)
+    | select(.head.repo.full_name == $repository)
+  ]
+  | ((first(.[] | select(.state == "open")) // first(.[] | select(.merged_at == null))) | .number)
   // empty
 ' "${response_file}")"
 readonly existing_pull_request
