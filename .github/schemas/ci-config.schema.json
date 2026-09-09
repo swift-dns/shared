@@ -22,6 +22,10 @@
       "type": "boolean",
       "description": "The 'benchmarks', 'update-benchmark-thresholds' and 'export-benchmark-results' workflows."
     },
+    "freebsd": {
+      "type": "boolean",
+      "description": "The 'freebsd-nightly-tests' job."
+    },
     "musl": {
       "type": "boolean",
       "description": "The 'musl-unit' and 'musl-nightly-tests' jobs."
