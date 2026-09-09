@@ -403,6 +403,11 @@ jobs:
           # Ubuntu runners low on space causes the emulator to fail to install
           free-disk-space: true
           android-emulator-test-folder: /data/local/tmp/android-xctest
+          android-emulator-options: >-
+            -no-window
+            -noaudio
+            -no-boot-anim
+            -memory 4096
           test-env: PROJECT_ROOT_FOR_TESTING=/data/local/tmp/android-xctest
           swift-version: ${{ matrix.swift.version }}
           swift-configuration: ${{ matrix.config.mode }}
