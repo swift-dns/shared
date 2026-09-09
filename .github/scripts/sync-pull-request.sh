@@ -74,12 +74,28 @@ api_failure_details() {
   return 0
 }
 
+# Percent-encodes every byte outside 'A-Za-z0-9-._~'; GitHub reads an encoded '/' as a literal one.
+url_encode() {
+  local value="${1?url_encode requires a value to encode}"
+
+  jq --null-input --raw-output --arg value "${value}" '$value | @uri'
+  return "$?"
+}
+
 # Lists the pull requests from HEAD_BRANCH into 'response_file', newest first.
 fetch_pull_requests() {
-  local query="state=all&head=${repository_owner}:${head_branch}&base=${base_branch}"
+  local encoded_head encoded_base query url status
+
+  if ! encoded_head="$(url_encode "${repository_owner}:${head_branch}")"; then
+    fatal "Failed to url-encode the head '${repository_owner}:${head_branch}'"
+  fi
+  if ! encoded_base="$(url_encode "${base_branch}")"; then
+    fatal "Failed to url-encode the base branch '${base_branch}'"
+  fi
+
+  query="state=all&head=${encoded_head}&base=${encoded_base}"
   query+="&sort=created&direction=desc&per_page=100"
-  local url="${api_url}/repos/${repository}/pulls?${query}"
-  local status
+  url="${api_url}/repos/${repository}/pulls?${query}"
   status="$(github_api GET "${url}" "" "${response_file}")"
 
   if [[ "${status}" != "200" ]]; then
@@ -90,8 +106,13 @@ fetch_pull_requests() {
 }
 
 delete_head_branch() {
-  local url="${api_url}/repos/${repository}/git/refs/heads/${head_branch}"
-  local status
+  local encoded_branch url status
+
+  if ! encoded_branch="$(url_encode "${head_branch}")"; then
+    fatal "Failed to url-encode HEAD_BRANCH '${head_branch}'"
+  fi
+
+  url="${api_url}/repos/${repository}/git/refs/heads/${encoded_branch}"
   status="$(github_api DELETE "${url}" "" "${response_file}")"
 
   if [[ "${status}" == "204" ]]; then
@@ -172,8 +193,7 @@ if [[ "${has_changes}" == "false" ]]; then
 fi
 
 fetch_pull_requests
-# GitHub drops the 'head' filter instead of rejecting it when its owner or its branch is empty,
-# answering with every pull request, so the response is narrowed down again before it is updated.
+# GitHub answers with every pull request when the 'head' filter has an empty owner or branch.
 existing_pull_request="$(jq --raw-output \
   --arg repository "${repository}" \
   --arg head_branch "${head_branch}" \

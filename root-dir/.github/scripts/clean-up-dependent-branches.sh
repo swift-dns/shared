@@ -65,6 +65,14 @@ api_failure_details() {
   return 0
 }
 
+# Percent-encodes every byte outside 'A-Za-z0-9-._~'; GitHub reads an encoded '/' as a literal one.
+url_encode() {
+  local value="${1?url_encode requires a value to encode}"
+
+  jq --null-input --raw-output --arg value "${value}" '$value | @uri'
+  return "$?"
+}
+
 is_run_id() {
   local value="${1?is_run_id requires a value}"
 
@@ -147,8 +155,14 @@ list_branch_names() {
 
 delete_branch() {
   local target_branch="${1:?delete_branch requires a branch name}"
-  local url="${api_url}/repos/${repository}/git/refs/heads/${target_branch}"
-  local status
+  local encoded_branch url status
+
+  if ! encoded_branch="$(url_encode "${target_branch}")"; then
+    error "Failed to url-encode the branch '${target_branch}'"
+    return 1
+  fi
+
+  url="${api_url}/repos/${repository}/git/refs/heads/${encoded_branch}"
   status="$(github_api DELETE "${url}" "${response_file}")"
 
   case "${status}" in

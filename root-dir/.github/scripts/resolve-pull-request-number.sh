@@ -33,9 +33,7 @@ fetch_open_pull_requests() {
   return "$?"
 }
 
-# GitHub drops the 'head' filter instead of rejecting it when its owner or its branch is empty,
-# answering with every open pull request, so the response is narrowed down again here. A head
-# repository that has been deleted leaves 'head.repo' null, which the full name comparison drops.
+# GitHub answers with every open pull request when the 'head' filter has an empty owner or branch.
 select_pull_requests_of_branch() {
   local response_json="${1:?select_pull_requests_of_branch requires the listed pull requests json}"
 
@@ -80,8 +78,7 @@ if [[ "${match_count}" -eq 0 ]]; then
   exit 0
 fi
 
-# GitHub lets a branch head only one open pull request, so this stays a logged choice instead of a
-# silently arbitrary one, should that ever change.
+# GitHub lets a branch head only one open pull request; this logs the pick should that change.
 if [[ "${match_count}" -gt 1 ]]; then
   if ! candidates="$(describe_pull_requests "${matches_json}")"; then
     fatal "Failed to describe the ${match_count} pull requests headed by '${branch}'"
