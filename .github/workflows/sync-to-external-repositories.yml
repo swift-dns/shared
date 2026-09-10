@@ -60,6 +60,15 @@ jobs:
       - name: Mirror root-dir into ${{ matrix.repository }}
         run: rsync --archive --verbose source/root-dir/ ${{ matrix.repository }}/
 
+      - name: Remove files retired from root-dir in ${{ matrix.repository }}
+        env:
+          HEAD_SHA: ${{ github.sha }}
+          SOURCE_PATH: source
+          TARGET_PATH: ${{ matrix.repository }}
+          MIRROR_SUBDIR: root-dir
+        run: |
+          source/.github/scripts/remove-retired-files.sh
+
       - name: Build pull request description
         env:
           REPOSITORY: ${{ github.repository }}

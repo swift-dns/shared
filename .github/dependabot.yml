@@ -3,7 +3,7 @@ updates:
   - package-ecosystem: "github-actions"
     directories:
       - "/"
-      - "/root-dir"
+      - "/root-dir/.github/workflows"
     schedule:
       interval: "daily"
     groups:
