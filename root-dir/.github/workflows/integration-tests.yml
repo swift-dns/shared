@@ -478,6 +478,15 @@ jobs:
         if: ${{ steps.check-relevance.outputs.should-run == 'true' }}
         run: find . -type l -exec sh -c 'LINKED="$(readlink -f "{}")"; rm "{}"; cp -a "${LINKED}" "{}"' \;
 
+      - name: Restore .build
+        if: ${{ steps.check-relevance.outputs.should-run == 'true' && runner.debug != '1' }}
+        id: "restore-cache"
+        uses: actions/cache/restore@v6
+        with:
+          path: .build
+          key: "${{ github.event.repository.name }}-integration-tests-android-${{ matrix.config.mode }}-build-${{ matrix.swift.version }}-${{ runner.os }}-${{ hashFiles('./Package.resolved') }}"
+          restore-keys: "${{ github.event.repository.name }}-integration-tests-android-${{ matrix.config.mode }}-build-${{ matrix.swift.version }}-${{ runner.os }}-"
+
       - name: Run unit tests
         if: ${{ steps.check-relevance.outputs.should-run == 'true' }}
         uses: skiptools/swift-android-action@2044b79660f201ccef8cbce62877e4ec5409f9c8 # v2.9.5
@@ -498,3 +507,10 @@ jobs:
             --build-tests
             --explicit-target-dependency-import-check error
           swift-test-flags: --filter "IntegrationTests."
+
+      - name: Cache .build
+        if: ${{ steps.check-relevance.outputs.should-run == 'true' && steps.restore-cache.outputs.cache-hit != 'true' }}
+        uses: actions/cache/save@v6
+        with:
+          path: .build
+          key: "${{ github.event.repository.name }}-integration-tests-android-${{ matrix.config.mode }}-build-${{ matrix.swift.version }}-${{ runner.os }}-${{ hashFiles('./Package.resolved') }}"
