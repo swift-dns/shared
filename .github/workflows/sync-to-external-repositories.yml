@@ -56,6 +56,7 @@ jobs:
         with:
           repository: ${{ matrix.repository }}
           path: ${{ matrix.repository }}
+          fetch-depth: 0
           persist-credentials: false
 
       - name: Mirror root-dir into ${{ matrix.repository }}
