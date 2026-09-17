@@ -1,7 +1,7 @@
 $schema: https://json-schema.org/draft/2020-12/schema
 $id: https://raw.githubusercontent.com/swift-dns/shared/refs/heads/main/.github/schemas/ci-config.schema.yml
 title: CI configuration
-description: Turns off the CI jobs that a repository does not want to run. Every repository mirrored from swift-dns/shared must ship a '.github/ci-config.y[a]ml'; a key that is absent from it leaves the jobs it gates enabled.
+description: Turns off the CI jobs that a repository does not want to run, and holds the 'swiftc' flags it needs. Every repository mirrored from swift-dns/shared must ship a '.github/ci-config.y[a]ml'; a key that is absent from it leaves the jobs it gates enabled and adds no flag.
 type: object
 additionalProperties: false
 properties:
@@ -29,3 +29,12 @@ properties:
   windows:
     type: boolean
     description: The 'windows-unit' and 'windows-nightly-tests' jobs.
+  cxx-interoperability-flag:
+    type: string
+    description: The C++ interoperability flag that the jobs pass on as '-Xswiftc <flag>', such as '-cxx-interoperability-mode=default'. An empty one adds no flag.
+  android-swift-build-flags:
+    type: string
+    description: The extra 'swift build' flags of the android jobs, passed on as they stand. A job expands them in a shell, so they may name an environment variable that it sets, such as '${SWIFT_INSTALLATION}'. An empty one adds no flag.
+  wasi-swift-build-flags:
+    type: string
+    description: The 'swift build' flags of the wasi jobs, replacing the ones they use by default. A set one also skips their wasmtime step, because dropping '--build-tests' from it leaves nothing to run. An empty one keeps the defaults.
