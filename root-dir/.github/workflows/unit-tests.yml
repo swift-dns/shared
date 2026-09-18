@@ -463,6 +463,7 @@ jobs:
         run: |
           swift build \
             --build-tests \
+            --disable-xctest \
             --explicit-target-dependency-import-check error \
             -Xswiftc -require-explicit-sendable \
             ${CXX_INTEROPERABILITY_ARGUMENTS} \
@@ -562,6 +563,7 @@ jobs:
           copy-files: Tests
           swift-build-flags: >-
             --build-tests
+            --disable-xctest
             --explicit-target-dependency-import-check error
             ${ANDROID_SWIFT_BUILD_ARGUMENTS}
           swift-test-flags: --skip "IntegrationTests."
@@ -710,6 +712,7 @@ jobs:
           SWIFT_VERSION: ${{ matrix.swift.version }}
           BUILD_MODE: ${{ matrix.config.mode }}
           BUILD_FLAGS: >-
+            --disable-xctest
             ${{ env.WASI_SWIFT_BUILD_ARGUMENTS
             || '--build-tests --explicit-target-dependency-import-check error -Xswiftc -require-explicit-sendable' }}
         run: .github/scripts/build-with-sdk.sh
