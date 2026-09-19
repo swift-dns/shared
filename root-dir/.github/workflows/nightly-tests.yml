@@ -257,6 +257,7 @@ jobs:
         macos:
           - version: macos-15
           - version: macos-26
+          - version: xcode-27
         xcode:
           - version: latest-stable
         swift:
