@@ -464,7 +464,7 @@ jobs:
 
       - name: Update swift
         if: ${{ steps.check-relevance.outputs.should-run == 'true' }}
-        uses: compnerd/gha-setup-swift@397094e75494a93fa8d81db0268dbc8f5d6cf7c6 # v0.4.1
+        uses: compnerd/gha-setup-swift@bbae8ce86bac5a3449f3992b3d88bc4ca25f2057 # v0.5.0
         with:
           swift-version: swift-${{ steps.swift-release.outputs.version }}-release
           swift-build: ${{ steps.swift-release.outputs.version }}-RELEASE
