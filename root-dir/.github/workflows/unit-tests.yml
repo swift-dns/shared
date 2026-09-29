@@ -514,9 +514,22 @@ jobs:
         swift:
           - version: 6.3
           - version: 6.4
+        ndk:
+          - release: r27d
+            version: 27.3.13750724
+          - release: r28c
+            version: 28.2.13676358
+          - release: r29
+            version: 29.0.14206865
+          - release: r30
+            version: 30.0.16248370
         config:
           - mode: "debug"
           - mode: "release"
+        exclude:
+          # Swift 6.3 can't work around NDK r29's libc++ bug under C++ interoperability (android/ndk#2230).
+          - swift: { version: 6.3 }
+            ndk: { release: r29, version: 29.0.14206865 }
         include:
           - swift: { version: 6.3 }
             runner: ubuntu-24.04
@@ -569,18 +582,35 @@ jobs:
           SWIFT_VERSION: ${{ matrix.swift.version }}
         run: .github/scripts/swift-release.sh >> "${GITHUB_OUTPUT}"
 
+      - name: Install Android NDK ${{ matrix.ndk.release }}
+        if: ${{ steps.check-relevance.outputs.should-run == 'true' }}
+        id: android-ndk
+        env:
+          NDK_VERSION: ${{ matrix.ndk.version }}
+        run: |
+          NDK_PATH="${ANDROID_HOME}/ndk/${NDK_VERSION}"
+          if [[ ! -d "${NDK_PATH}" ]]; then
+            "${ANDROID_HOME}/cmdline-tools/latest/bin/sdkmanager" --install "ndk;${NDK_VERSION}"
+          fi
+          printf '%s\n' "path=${NDK_PATH}" >> "${GITHUB_OUTPUT}"
+
       - name: Restore .build
         if: ${{ steps.check-relevance.outputs.should-run == 'true' && runner.debug != '1' }}
         id: "restore-cache"
         uses: actions/cache/restore@v6
         with:
           path: .build
-          key: "${{ github.event.repository.name }}-unit-tests-android-${{ matrix.config.mode }}-build-${{ steps.swift-release.outputs.version }}-${{ runner.os }}-${{ hashFiles('./Package.resolved') }}"
-          restore-keys: "${{ github.event.repository.name }}-unit-tests-android-${{ matrix.config.mode }}-build-${{ steps.swift-release.outputs.version }}-${{ runner.os }}-"
+          key: "${{ github.event.repository.name }}-unit-tests-android-${{ matrix.config.mode }}-build-${{ steps.swift-release.outputs.version }}-${{ matrix.ndk.release }}-${{ runner.os }}-${{ hashFiles('./Package.resolved') }}"
+          restore-keys: "${{ github.event.repository.name }}-unit-tests-android-${{ matrix.config.mode }}-build-${{ steps.swift-release.outputs.version }}-${{ matrix.ndk.release }}-${{ runner.os }}-"
 
       - name: Run tests
         if: ${{ steps.check-relevance.outputs.should-run == 'true' }}
+        id: run-tests
         uses: skiptools/swift-android-action@2044b79660f201ccef8cbce62877e4ec5409f9c8 # v2.9.5
+        # The action clears 'ANDROID_NDK_ROOT', which makes Swift Build pick the runner's newest NDK
+        # over 'ndk-version'. Env set on this step takes precedence over what the action sets.
+        env:
+          ANDROID_NDK_ROOT: ${{ steps.android-ndk.outputs.path }}
         with:
           # Ubuntu runners low on space causes the emulator to fail to install
           free-disk-space: true
@@ -592,6 +622,7 @@ jobs:
             -memory 4096
           test-env: PROJECT_ROOT_FOR_TESTING=/data/local/tmp/android-xctest
           swift-version: ${{ steps.swift-release.outputs.version }}
+          ndk-version: ${{ matrix.ndk.version }}
           swift-configuration: ${{ matrix.config.mode }}
           copy-files: Tests
           swift-build-flags: >-
@@ -601,12 +632,21 @@ jobs:
             ${ANDROID_SWIFT_BUILD_ARGUMENTS}
           swift-test-flags: --skip "IntegrationTests."
 
+      - name: Build for aarch64
+        if: ${{ steps.check-relevance.outputs.should-run == 'true' }}
+        env:
+          ANDROID_NDK_ROOT: ${{ steps.android-ndk.outputs.path }}
+        run: |
+          ${{ steps.run-tests.outputs.swift-build }} \
+            -c ${{ matrix.config.mode }} \
+            --swift-sdk aarch64-unknown-linux-android28
+
       - name: Cache .build
         if: ${{ steps.check-relevance.outputs.should-run == 'true' && steps.restore-cache.outputs.cache-hit != 'true' }}
         uses: actions/cache/save@v6
         with:
           path: .build
-          key: "${{ github.event.repository.name }}-unit-tests-android-${{ matrix.config.mode }}-build-${{ steps.swift-release.outputs.version }}-${{ runner.os }}-${{ hashFiles('./Package.resolved') }}"
+          key: "${{ github.event.repository.name }}-unit-tests-android-${{ matrix.config.mode }}-build-${{ steps.swift-release.outputs.version }}-${{ matrix.ndk.release }}-${{ runner.os }}-${{ hashFiles('./Package.resolved') }}"
 
   musl-unit:
     strategy:

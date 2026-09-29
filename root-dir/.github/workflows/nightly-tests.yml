@@ -419,6 +419,15 @@ jobs:
       matrix:
         swift:
           - version: nightly-main
+        ndk:
+          - release: r27d
+            version: 27.3.13750724
+          - release: r28c
+            version: 28.2.13676358
+          - release: r29
+            version: 29.0.14206865
+          - release: r30
+            version: 30.0.16248370
         config:
           - mode: "debug"
           - mode: "release"
@@ -473,6 +482,18 @@ jobs:
           .github/scripts/swift-sdk-snapshot.sh \
             | .github/scripts/swift-toolchain-id.sh >> "${GITHUB_OUTPUT}"
 
+      - name: Install Android NDK ${{ matrix.ndk.release }}
+        if: ${{ steps.check-relevance.outputs.should-run == 'true' }}
+        id: android-ndk
+        env:
+          NDK_VERSION: ${{ matrix.ndk.version }}
+        run: |
+          NDK_PATH="${ANDROID_HOME}/ndk/${NDK_VERSION}"
+          if [[ ! -d "${NDK_PATH}" ]]; then
+            "${ANDROID_HOME}/cmdline-tools/latest/bin/sdkmanager" --install "ndk;${NDK_VERSION}"
+          fi
+          printf '%s\n' "path=${NDK_PATH}" >> "${GITHUB_OUTPUT}"
+
       # Restored after the symlinks are replaced, so that the sweep above leaves the symlinks
       # 'swift build' keeps inside '.build' alone.
       - name: Restore .build
@@ -481,12 +502,17 @@ jobs:
         uses: actions/cache/restore@v6
         with:
           path: .build
-          key: "${{ github.event.repository.name }}-nightly-unit-tests-android-${{ matrix.config.mode }}-build-${{ runner.os }}-${{ steps.swift-toolchain.outputs.toolchain-id }}-${{ hashFiles('./Package.resolved') }}"
-          restore-keys: "${{ github.event.repository.name }}-nightly-unit-tests-android-${{ matrix.config.mode }}-build-${{ runner.os }}-${{ steps.swift-toolchain.outputs.toolchain-id }}-"
+          key: "${{ github.event.repository.name }}-nightly-unit-tests-android-${{ matrix.config.mode }}-build-${{ runner.os }}-${{ steps.swift-toolchain.outputs.toolchain-id }}-${{ matrix.ndk.release }}-${{ hashFiles('./Package.resolved') }}"
+          restore-keys: "${{ github.event.repository.name }}-nightly-unit-tests-android-${{ matrix.config.mode }}-build-${{ runner.os }}-${{ steps.swift-toolchain.outputs.toolchain-id }}-${{ matrix.ndk.release }}-"
 
       - name: Run unit tests
         if: ${{ steps.check-relevance.outputs.should-run == 'true' }}
+        id: run-unit-tests
         uses: skiptools/swift-android-action@2044b79660f201ccef8cbce62877e4ec5409f9c8 # v2.9.5
+        # The action clears 'ANDROID_NDK_ROOT', which makes Swift Build pick the runner's newest NDK
+        # over 'ndk-version'. Env set on this step takes precedence over what the action sets.
+        env:
+          ANDROID_NDK_ROOT: ${{ steps.android-ndk.outputs.path }}
         with:
           # Ubuntu runners low on space causes the emulator to fail to install
           free-disk-space: true
@@ -498,6 +524,7 @@ jobs:
             -memory 4096
           test-env: PROJECT_ROOT_FOR_TESTING=/data/local/tmp/android-xctest
           swift-version: ${{ matrix.swift.version }}
+          ndk-version: ${{ matrix.ndk.version }}
           swift-configuration: ${{ matrix.config.mode }}
           copy-files: Tests
           swift-build-flags: >-
@@ -507,12 +534,21 @@ jobs:
             ${ANDROID_SWIFT_BUILD_ARGUMENTS}
           swift-test-flags: --skip "IntegrationTests."
 
+      - name: Build for aarch64
+        if: ${{ steps.check-relevance.outputs.should-run == 'true' }}
+        env:
+          ANDROID_NDK_ROOT: ${{ steps.android-ndk.outputs.path }}
+        run: |
+          ${{ steps.run-unit-tests.outputs.swift-build }} \
+            -c ${{ matrix.config.mode }} \
+            --swift-sdk aarch64-unknown-linux-android28
+
       - name: Cache .build
         if: ${{ steps.check-relevance.outputs.should-run == 'true' && steps.restore-cache.outputs.cache-hit != 'true' }}
         uses: actions/cache/save@v6
         with:
           path: .build
-          key: "${{ github.event.repository.name }}-nightly-unit-tests-android-${{ matrix.config.mode }}-build-${{ runner.os }}-${{ steps.swift-toolchain.outputs.toolchain-id }}-${{ hashFiles('./Package.resolved') }}"
+          key: "${{ github.event.repository.name }}-nightly-unit-tests-android-${{ matrix.config.mode }}-build-${{ runner.os }}-${{ steps.swift-toolchain.outputs.toolchain-id }}-${{ matrix.ndk.release }}-${{ hashFiles('./Package.resolved') }}"
 
   windows-nightly-tests:
     strategy:
