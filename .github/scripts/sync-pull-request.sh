@@ -8,22 +8,33 @@ log() { printf -- "** %s\n" "$*" >&2; }
 error() { printf -- "** ERROR: %s\n" "$*" >&2; }
 fatal() { error "$@"; exit 1; }
 
+readonly mode="${MODE:-reconcile}"
 readonly token="${GH_TOKEN:?GH_TOKEN must be a token allowed to write pull requests to REPOSITORY}"
 readonly repository="${REPOSITORY:?REPOSITORY must be the owner/name of the target repository, e.g. 'swift-dns/swift-dns'}"
 readonly head_branch="${HEAD_BRANCH:?HEAD_BRANCH must be the branch holding the synced files, e.g. 'sync-files'}"
 readonly base_branch="${BASE_BRANCH:?BASE_BRANCH must be the branch the pull request targets, e.g. 'main'}"
-readonly has_changes="${HAS_CHANGES:?HAS_CHANGES must be 'true' or 'false', as reported by commit-signed.sh}"
-readonly title="${TITLE:?TITLE must be the pull request title}"
-readonly body_file="${BODY_FILE:?BODY_FILE must be the file path holding the pull request body}"
 readonly api_url="${GITHUB_API_URL:-https://api.github.com}"
+readonly graphql_url="${GITHUB_GRAPHQL_URL:-https://api.github.com/graphql}"
+
+case "${mode}" in
+  reconcile | draft) ;;
+  *) fatal "MODE must be 'reconcile' or 'draft', got '${mode}'" ;;
+esac
 
 if [[ ! "${repository}" =~ ^[^/]+/[^/]+$ ]]; then
   fatal "REPOSITORY is not in 'owner/name' form: '${repository}'"
 fi
-if [[ "${has_changes}" != "true" && "${has_changes}" != "false" ]]; then
-  fatal "HAS_CHANGES is not 'true' or 'false': '${has_changes}'"
+
+if [[ "${mode}" == "reconcile" ]]; then
+  readonly has_changes="${HAS_CHANGES:?HAS_CHANGES must be 'true' or 'false', as reported by commit-signed.sh}"
+  readonly title="${TITLE:?TITLE must be the pull request title}"
+  readonly body_file="${BODY_FILE:?BODY_FILE must be the file path holding the pull request body}"
+
+  if [[ "${has_changes}" != "true" && "${has_changes}" != "false" ]]; then
+    fatal "HAS_CHANGES is not 'true' or 'false': '${has_changes}'"
+  fi
+  [[ -f "${body_file}" ]] || fatal "BODY_FILE does not exist: '${body_file}'"
 fi
-[[ -f "${body_file}" ]] || fatal "BODY_FILE does not exist: '${body_file}'"
 
 readonly repository_owner="${repository%%/*}"
 
@@ -137,7 +148,7 @@ create_pull_request() {
     --arg head "${head_branch}" \
     --arg base "${base_branch}" \
     --rawfile body "${body_file}" \
-    '{title: $title, head: $head, base: $base, body: $body}' > "${payload_file}"
+    '{title: $title, head: $head, base: $base, body: $body, draft: true}' > "${payload_file}"
   status="$(github_api POST "${url}" "${payload_file}" "${response_file}")"
   if [[ "${status}" != "201" ]]; then
     fatal "Failed to create a pull request on '${repository}':" \
@@ -186,6 +197,59 @@ update_pull_request() {
   log "✅ Updated pull request $(jq --raw-output '.html_url' "${response_file}")"
   return 0
 }
+
+# GitHub's REST API cannot turn a pull request into a draft, so this goes through GraphQL.
+convert_open_pull_request_to_draft() {
+  local open_pull_request number node_id status
+
+  fetch_pull_requests
+  open_pull_request="$(jq --compact-output \
+    --arg repository "${repository}" \
+    --arg head_branch "${head_branch}" \
+    --arg base_branch "${base_branch}" '
+    first(
+      .[]
+      | select(.state == "open")
+      | select(.head.ref == $head_branch)
+      | select(.base.ref == $base_branch)
+      | select(.head.repo.full_name == $repository)
+    )
+  ' "${response_file}")"
+
+  if [[ -z "${open_pull_request}" ]]; then
+    log "There is no open pull request from '${head_branch}' into '${base_branch}' on '${repository}'; nothing to convert."
+    return 0
+  fi
+
+  number="$(jq --raw-output '.number' <<< "${open_pull_request}")"
+  if [[ "$(jq --raw-output '.draft' <<< "${open_pull_request}")" == "true" ]]; then
+    log "Pull request #${number} of '${repository}' is already a draft."
+    return 0
+  fi
+
+  node_id="$(jq --raw-output '.node_id' <<< "${open_pull_request}")"
+  jq --null-input --arg node_id "${node_id}" '{
+    query: "mutation($pullRequestId: ID!) { convertPullRequestToDraft(input: {pullRequestId: $pullRequestId}) { pullRequest { isDraft } } }",
+    variables: {pullRequestId: $node_id}
+  }' > "${payload_file}"
+  status="$(github_api POST "${graphql_url}" "${payload_file}" "${response_file}")"
+  if [[ "${status}" != "200" ]]; then
+    fatal "Failed to convert pull request #${number} of '${repository}' to a draft:" \
+      "$(api_failure_details "${status}" "${response_file}")"
+  fi
+  if [[ "$(jq --raw-output '.data.convertPullRequestToDraft.pullRequest.isDraft' "${response_file}")" != "true" ]]; then
+    fatal "Pull request #${number} of '${repository}' is not a draft after the conversion;" \
+      "$(api_failure_details "${status}" "${response_file}")"
+  fi
+
+  log "✅ Converted pull request $(jq --raw-output '.html_url' <<< "${open_pull_request}") to a draft."
+  return 0
+}
+
+if [[ "${mode}" == "draft" ]]; then
+  convert_open_pull_request_to_draft
+  exit 0
+fi
 
 if [[ "${has_changes}" == "false" ]]; then
   delete_head_branch

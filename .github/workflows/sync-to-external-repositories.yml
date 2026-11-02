@@ -96,6 +96,16 @@ jobs:
           printf 'branch=%s\n' "$(git -C "${TARGET_PATH}" rev-parse --abbrev-ref HEAD)" >> "${GITHUB_OUTPUT}"
           printf 'sha=%s\n' "$(git -C "${TARGET_PATH}" rev-parse HEAD)" >> "${GITHUB_OUTPUT}"
 
+      - name: Convert the sync pull request to a draft
+        env:
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+          MODE: draft
+          REPOSITORY: ${{ matrix.repository }}
+          HEAD_BRANCH: ${{ env.SYNC_BRANCH }}
+          BASE_BRANCH: ${{ steps.base.outputs.branch }}
+        run: |
+          source/.github/scripts/sync-pull-request.sh
+
       - name: Create signed sync commit
         id: sync-commit
         env:
