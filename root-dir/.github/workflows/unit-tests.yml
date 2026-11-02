@@ -30,6 +30,11 @@ jobs:
       cxx-interoperability-arguments: ${{ steps.ci-config.outputs.cxx-interoperability-arguments }}
       android-swift-build-arguments: ${{ steps.ci-config.outputs.android-swift-build-arguments }}
       wasi-swift-build-arguments: ${{ steps.ci-config.outputs.wasi-swift-build-arguments }}
+      android-test-environment: ${{ steps.ci-config.outputs.android-test-environment }}
+      linux-test-environment: ${{ steps.ci-config.outputs.linux-test-environment }}
+      macos-test-environment: ${{ steps.ci-config.outputs.macos-test-environment }}
+      wasi-test-environment: ${{ steps.ci-config.outputs.wasi-test-environment }}
+      windows-test-environment: ${{ steps.ci-config.outputs.windows-test-environment }}
 
     steps:
       - name: Check out ${{ github.event.repository.name }}
@@ -72,6 +77,8 @@ jobs:
             runner: ubuntu-26.04
 
     runs-on: ${{ matrix.runner }}
+
+    needs: check-ci-config
 
     container: ${{ matrix.swift-image.name }}
 
@@ -134,8 +141,10 @@ jobs:
 
       - name: Run tests
         if: ${{ steps.check-relevance.outputs.should-run == 'true' }}
+        env:
+          TEST_ENVIRONMENT: ${{ needs.check-ci-config.outputs.linux-test-environment }}
         run: |
-          swift test \
+          env ${TEST_ENVIRONMENT} swift test \
             --skip "IntegrationTests." \
             --skip-build \
             --disable-xctest \
@@ -247,7 +256,7 @@ jobs:
 
     runs-on: ${{ matrix.macos.version }}
 
-    needs: cache-swiftly-toolchain-for-macos
+    needs: [check-ci-config, cache-swiftly-toolchain-for-macos]
 
     timeout-minutes: 20
 
@@ -356,8 +365,10 @@ jobs:
 
       - name: Run tests
         if: ${{ steps.check-relevance.outputs.should-run == 'true' }}
+        env:
+          TEST_ENVIRONMENT: ${{ needs.check-ci-config.outputs.macos-test-environment }}
         run: |
-          swift test \
+          env ${TEST_ENVIRONMENT} swift test \
             --skip "IntegrationTests." \
             --skip-build \
             --disable-xctest \
@@ -458,8 +469,10 @@ jobs:
 
       - name: Run tests
         if: ${{ steps.check-relevance.outputs.should-run == 'true' }}
+        env:
+          TEST_ENVIRONMENT: ${{ needs.check-ci-config.outputs.windows-test-environment }}
         run: |
-          swift test \
+          env ${TEST_ENVIRONMENT} swift test \
             --skip "IntegrationTests." \
             --skip-build \
             --disable-xctest \
@@ -571,6 +584,7 @@ jobs:
         # over 'ndk-version'. Env set on this step takes precedence over what the action sets.
         env:
           ANDROID_NDK_ROOT: ${{ steps.android-ndk.outputs.path }}
+          TEST_ENVIRONMENT: ${{ needs.check-ci-config.outputs.android-test-environment }}
         with:
           # Ubuntu runners low on space causes the emulator to fail to install
           free-disk-space: true
@@ -581,7 +595,7 @@ jobs:
             -noaudio
             -no-boot-anim
             -memory 4096
-          test-env: PROJECT_ROOT_FOR_TESTING=/data/local/tmp/android-xctest
+          test-env: PROJECT_ROOT_FOR_TESTING=/data/local/tmp/android-xctest ${TEST_ENVIRONMENT}
           swift-version: ${{ steps.swift-release.outputs.version }}
           ndk-version: ${{ matrix.ndk.version }}
           swift-configuration: ${{ matrix.config.mode }}
@@ -780,6 +794,7 @@ jobs:
           WASMTIME_SHA256: "4c2e31b68ad99e0a519f225a261fda099eb15f056d4a24fdb3c2a46517bde1df"
           TEST_FLAGS: >-
             --skip IntegrationTests.
+          TEST_ENVIRONMENT: ${{ needs.check-ci-config.outputs.wasi-test-environment }}
         run: .github/scripts/test-with-wasmtime.sh
 
   embedded-wasm-unit:
