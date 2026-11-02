@@ -392,12 +392,6 @@ jobs:
         swift:
           - version: nightly-main
         ndk:
-          - release: r27d
-            version: 27.3.13750724
-          - release: r28c
-            version: 28.2.13676358
-          - release: r29
-            version: 29.0.14206865
           - release: r30
             version: 30.0.16248370
         config:
