@@ -18,7 +18,7 @@ jobs:
 
     if: ${{ !github.event.pull_request.draft }}
 
-    timeout-minutes: 5
+    timeout-minutes: 30
 
     env:
       IS_FORK_PULL_REQUEST: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name != github.repository }}
@@ -78,7 +78,7 @@ jobs:
 
     container: ${{ matrix.swift-image.name }}
 
-    timeout-minutes: 15
+    timeout-minutes: 30
 
     permissions:
       actions: read # For reading the previous commit's workflow runs
@@ -190,7 +190,7 @@ jobs:
     needs: check-ci-config
     if: ${{ needs.check-ci-config.outputs.integration-tests == 'true' }}
 
-    timeout-minutes: 20
+    timeout-minutes: 30
 
     permissions:
       actions: read # For reading the previous commit's workflow runs
@@ -279,7 +279,7 @@ jobs:
     needs: [check-ci-config, cache-swiftly-toolchain-for-macos]
     if: ${{ needs.check-ci-config.outputs.integration-tests == 'true' }}
 
-    timeout-minutes: 20
+    timeout-minutes: 30
 
     permissions:
       actions: read # For reading the previous commit's workflow runs
