@@ -31,7 +31,7 @@ jobs:
 
     if: ${{ !github.event.pull_request.draft }}
 
-    timeout-minutes: 5
+    timeout-minutes: 30
 
     env:
       IS_FORK_PULL_REQUEST: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name != github.repository }}

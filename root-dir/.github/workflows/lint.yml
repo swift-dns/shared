@@ -19,7 +19,7 @@ jobs:
 
     if: ${{ !github.event.pull_request.draft }}
 
-    timeout-minutes: 10
+    timeout-minutes: 30
 
     container: swift:6.4-resolute
 
