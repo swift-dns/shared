@@ -1,7 +1,7 @@
 $schema: https://json-schema.org/draft/2020-12/schema
 $id: https://raw.githubusercontent.com/swift-dns/shared/refs/heads/main/.github/schemas/ci-config.schema.yml
 title: CI configuration
-description: Turns off the CI jobs that a repository does not want to run, and holds the 'swiftc' flags it needs. Every repository mirrored from swift-dns/shared must ship a '.github/ci-config.y[a]ml'; a key that is absent from it leaves the jobs it gates enabled and adds no flag.
+description: Turns off the CI jobs that a repository does not want to run, and holds the 'swiftc' flags it needs and the environment variables its tests run with. Every repository mirrored from swift-dns/shared must ship a '.github/ci-config.y[a]ml'; a key that is absent from it leaves the jobs it gates enabled and adds no flag or variable.
 type: object
 additionalProperties: false
 properties:
@@ -38,3 +38,21 @@ properties:
   wasi-swift-build-flags:
     type: string
     description: The 'swift build' flags of the wasi jobs, replacing the ones they use by default. A set one also skips their wasmtime step, because dropping '--build-tests' from it leaves nothing to run. An empty one keeps the defaults.
+  android-test-environment:
+    type: string
+    description: The environment variables of the tests of the 'android-unit', 'android-nightly-tests' and 'android-integration-tests' jobs, as space-separated 'NAME=VALUE' pairs, such as 'LOG_LEVEL=debug'. A value cannot hold whitespace. An empty one adds no variable.
+  freebsd-test-environment:
+    type: string
+    description: The environment variables of the tests of the 'freebsd-nightly-tests' job, as space-separated 'NAME=VALUE' pairs, such as 'LOG_LEVEL=debug'. A value cannot hold whitespace. An empty one adds no variable.
+  linux-test-environment:
+    type: string
+    description: The environment variables of the tests of the 'linux-unit', 'linux-nightly-tests' and 'linux-integration-tests' jobs, as space-separated 'NAME=VALUE' pairs, such as 'LOG_LEVEL=debug'. A value cannot hold whitespace. An empty one adds no variable.
+  macos-test-environment:
+    type: string
+    description: The environment variables of the tests of the 'macos-unit', 'macos-nightly-tests' and 'macos-integration-tests' jobs, as space-separated 'NAME=VALUE' pairs, such as 'LOG_LEVEL=debug'. A value cannot hold whitespace. An empty one adds no variable.
+  wasi-test-environment:
+    type: string
+    description: The environment variables of the tests of the 'wasi-unit' and 'wasi-nightly-tests' jobs, as space-separated 'NAME=VALUE' pairs, such as 'LOG_LEVEL=debug'. A value cannot hold whitespace. An empty one adds no variable. A set 'wasi-swift-build-flags' skips the wasmtime step that runs the tests, and with it these variables.
+  windows-test-environment:
+    type: string
+    description: The environment variables of the tests of the 'windows-unit' and 'windows-nightly-tests' jobs, as space-separated 'NAME=VALUE' pairs, such as 'LOG_LEVEL=debug'. A value cannot hold whitespace. An empty one adds no variable.

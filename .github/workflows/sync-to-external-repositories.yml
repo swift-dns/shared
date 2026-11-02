@@ -25,7 +25,7 @@ jobs:
           - swift-dns/swift-endpoint
           - swift-dns/swift-dns
           - swift-dns/swift-system-clock
-          - swift-dns/swift-highway
+          - swift-dns/swift-vectorization
 
     runs-on: ubuntu-26.04
 
